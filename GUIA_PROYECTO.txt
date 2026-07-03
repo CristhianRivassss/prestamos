@@ -1,0 +1,195 @@
+GUIA DEL PROYECTO - SISTEMA DE PRESTAMOS
+========================================
+
+Objetivo de esta guia
+---------------------
+Entender la estructura actual, como se conecta todo, por que se eligieron estas tecnologias,
+y como crecer el proyecto sin romper la base.
+
+
+1) Vista general del sistema actual
+-----------------------------------
+Hoy tienes una base lista para:
+- correr local
+- pasar build de produccion
+- desplegar en Vercel
+- tener motor financiero separado de la UI
+- probar formulas con tests unitarios
+
+Arquitectura actual (simple y correcta para etapa 1):
+- Frontend y servidor en un mismo proyecto Next.js
+- Motor de calculo desacoplado en lib/loan-engine
+- Tests del motor en tests/loan-engine
+- Contenerizacion con Docker para entorno consistente
+
+
+2) Estructura de carpetas y para que sirve cada una
+----------------------------------------------------
+app/
+- Capa de interfaz (paginas y layout). Aqui vive lo visual y el flujo del usuario.
+
+components/
+- Componentes reutilizables de UI. Por ahora esta base, luego aqui ira formulario,
+  tabla de cuotas, resumen, botones de imprimir/exportar, etc.
+
+lib/loan-engine/
+- Corazon financiero del proyecto.
+- Debe mantenerse puro: sin React, sin base de datos, sin llamadas HTTP.
+- Ventaja: es facil de testear y reutilizar.
+
+lib/loan-engine/shared/
+- Utilidades compartidas del motor:
+  money.ts  -> redondeo y formato CRC
+  rate.ts   -> conversion tasa mensual a tasa por periodo
+  dates.ts  -> avance de fechas por frecuencia
+
+lib/loan-engine/formulas/
+- Implementaciones por tipo de interes.
+- Hoy: formula francesa funcional y 3 placeholders listos para completar.
+
+tests/loan-engine/
+- Pruebas unitarias de formulas.
+- Hoy valida la formula francesa y que el saldo cierre en cero.
+
+public/
+- Activos estaticos (imagenes, iconos, etc.).
+
+
+3) Flujo de datos (como se conecta todo)
+----------------------------------------
+Cuando construyas la calculadora completa, el flujo ideal es:
+
+UI (app/components)
+  -> lee inputs del usuario (monto, tasa, cuotas, frecuencia, fechas, tipo, abono extra)
+  -> llama al motor (lib/loan-engine)
+  -> recibe tabla y resumen
+  -> renderiza resultados
+
+El motor hace:
+- conversion de tasa segun frecuencia
+- calculo por formula elegida
+- redondeo en colones
+- ajuste final de ultima cuota
+- devolucion de filas de plan de pago
+
+Importante:
+- La UI nunca debe recalcular formulas por su cuenta.
+- Toda regla financiera debe vivir en el motor.
+
+
+4) Por que se eligio cada tecnologia
+------------------------------------
+Next.js (App Router)
+- Facil despliegue en Vercel
+- SSR/estatico disponibles cuando los necesites
+- Buena base para escalar a login y APIs en etapa 2/3
+
+TypeScript
+- Reduce errores por tipos incorrectos
+- Muy util en calculos financieros y contratos de datos
+
+Tailwind CSS
+- Rapido para construir UI responsive
+- Facil mantener consistencia visual
+
+Vitest
+- Tests rapidos para formulas
+- Ideal para validar exactitud numerica y regresiones
+
+Docker
+- Mismo entorno en todas partes
+- Facil para mover a otros hosts en el futuro
+
+
+5) Estado de implementacion actual
+----------------------------------
+Ya funcional:
+- Home de plantilla
+- Formula francesa base
+- Conversion de tasa por frecuencia
+- Redondeo/formato CRC
+- Dockerfile multi-stage
+- Test inicial pasando
+
+Pendiente inmediato (etapa 1 real):
+- Formulario completo en UI
+- Tabla de cuotas completa
+- Resumen de prestamo
+- Las 4 formulas completas
+- Regla de ajuste de ultima cuota en todos los casos
+- Boton imprimir
+
+
+6) Plan de estudio recomendado (tiempo realista)
+-------------------------------------------------
+Si estudias 1 a 2 horas al dia:
+
+Semana 1 (6 a 10 horas)
+- Entender Next.js App Router y estructura de carpetas
+- Entender TypeScript basico de este proyecto
+- Correr app, test y build varias veces
+
+Semana 2 (8 a 12 horas)
+- Dominar el motor: types, rate, dates, money
+- Completar una formula adicional (ej: interes fijo)
+- Agregar 4 a 8 tests nuevos
+
+Semana 3 (8 a 12 horas)
+- Construir formulario y tabla en UI
+- Conectar UI con motor en vivo
+- Manejar validaciones de entrada y errores de usuario
+
+Semana 4 (6 a 10 horas)
+- Responsive fino
+- Impresion
+- Pulido de UX y consistencia de resultados
+
+Total para entenderlo bien y moverlo con confianza:
+- 28 a 44 horas aprox.
+
+
+7) Como mantenerlo escalable a largo plazo
+------------------------------------------
+Reglas de oro:
+1. Mantener la logica financiera en lib/loan-engine
+2. Cada formula nueva entra con tests antes de tocar UI
+3. Evitar mezclar reglas de negocio en componentes
+4. Definir contratos de salida estables (PaymentRow, LoanSummary)
+5. Versionar cambios grandes por modulo (motor, ui, infra)
+
+Ruta de crecimiento sugerida:
+- Etapa 1: calculadora robusta
+- Etapa 2: persistencia (Supabase), prestamos guardados, pagos reales
+- Etapa 3: auth y roles
+- Etapa 4 opcional: reportes avanzados y automatizacion
+
+
+8) Riesgos tecnicos y como evitarlos
+------------------------------------
+Riesgo: redondeos inconsistentes
+- Mitigacion: centralizar redondeo en money.ts y testear casos limite.
+
+Riesgo: formulas distintas entre UI y motor
+- Mitigacion: UI solo consume resultados del motor.
+
+Riesgo: deuda tecnica por crecer rapido
+- Mitigacion: separar por capas y escribir tests antes de refactors grandes.
+
+Riesgo: errores de fechas fin de mes
+- Mitigacion: testear casos 31->28/29, quincenal exacto, semanal y diario.
+
+
+9) Checklist practico diario (15 minutos)
+-----------------------------------------
+- npm test
+- npm run build
+- revisar que inputs invalidos no rompan la UI
+- confirmar que totales cierran correctamente
+- commit pequeno con mensaje claro
+
+
+10) Conclusiones
+----------------
+La base que tienes es correcta para un proyecto largo.
+No esta sobre-ingenierizada y ya viene preparada para crecer con orden.
+Si mantienes disciplina de capas + tests, este proyecto puede evolucionar sin dolor.
